@@ -8,7 +8,7 @@
 # status message indicating the result of the API call
 #
 # Dependencies
-# - Python 3.x
+# - Python 3.6
 # - 'requests' module
 #
 #######################################################################################################################
@@ -697,11 +697,13 @@ class SSID(DashboardObject):
     Provides a simplified object for downloading and manipulating SSID Attributes from Dashboard
 
     """
-    validparams = ['name', 'enabled', 'authMode', 'encryptionMode', 'psk', 'radiusServers', 'radiusAccountingEnabled',
-                   'radiusAccountingServers', 'ipAssignmentMode', 'useVlanTagging', 'concentratorNetworkId', 'vlanId',
-                   'defaultVlanId', 'apTagsAndVlanIds', 'walledGardenEnabled', 'walledGardenRanges', 'splashPage',
-                   'perClientBandwidthLimitUp', 'perClientBandwidthLimitDown', 'bandSelection', 'minBitRate',
-                   'radiusCoaEnabled']
+    validparams = ['name', 'enabled', 'authMode', 'encryptionMode', 'psk', 'splashPage', 'radiusServers',
+                    'radiusCoaEnabled', 'radiusAccountingEnabled', 'radiusAccountingServers',
+                    'radiusAttributeForGroupPolicies', 'ipAssignmentMode', 'useVlanTagging',
+                    'concentratorNetworkId', 'vlanId', 'defaultVlanId', 'apTagsAndVlanIds', 
+                    'walledGardenEnabled', 'walledGardenRanges', 'radiusOverride', 'minBitRate',
+                    'bandSelection', 'perClientBandwidthLimitUp', 'perClientBandwidthLimitDown'
+                    ]
     type = 'ssid'
 
 
@@ -1393,6 +1395,7 @@ def getdeviceuplink(apikey, networkid, serialnumber, suppressprint=False):
 
 # Update the attributes of a device
 def updatedevice(apikey, networkid, serial, name=None, tags=None, lat=None, lng=None, address=None, move=None, suppressprint=False):
+    # move needs to be str 'true' or 'false' to work; boolean True and False do not
     calltype = 'Device'
     posturl = '{0}/networks/{1}/devices/{2}'.format(str(base_url), str(networkid), str(serial))
     headers = {
@@ -1509,7 +1512,7 @@ def updatessidl3fwrules(apikey, networkid, ssidnum, fwrules, allowlan=None, supp
 ### NETWORKS ###
 
 # List the networks in an organization
-def getnetworklist(apikey, orgid, suppressprint=False):
+def getnetworklist(apikey, orgid, templateid=None, suppressprint=False):
     #
     # Confirm API Key has Admin Access Otherwise Raise Error
     #
@@ -1517,6 +1520,8 @@ def getnetworklist(apikey, orgid, suppressprint=False):
     calltype = 'Network'
 
     geturl = '{0}/organizations/{1}/networks'.format(str(base_url), str(orgid))
+    if templateid is not None:
+        geturl += '?configTemplateId=' + templateid
     headers = {
         'x-cisco-meraki-api-key': format(str(apikey)),
         'Content-Type': 'application/json'
@@ -1531,7 +1536,6 @@ def getnetworklist(apikey, orgid, suppressprint=False):
 
 # Return a network
 def getnetworkdetail(apikey, networkid, suppressprint=False):
-
     calltype = 'Network Detail'
     geturl = '{0}/networks/{1}'.format(str(base_url), str(networkid))
     headers = {
@@ -1633,7 +1637,8 @@ def bindtotemplate(apikey, networkid, templateid, autobind=False, suppressprint=
     }
     
     postdata['configTemplateId'] = format(str(templateid))
-    postdata['autoBind'] = autobind
+    if autobind:
+        postdata['autoBind'] = autobind
 
     dashboard = requests.post(posturl, data=json.dumps(postdata), headers=headers)
     #
@@ -1676,7 +1681,7 @@ def getvpnsettings(apikey, networkid, suppressprint=False):
 
 
 # Update the site-to-site VPN settings of a network. Only valid for MX networks in NAT mode.
-def updatevpnsettings(apikey, networkid, mode='None', subnets=None, usevpn=None, hubnetworks=None, defaultroute=None,
+def updatevpnsettings(apikey, networkid, mode='none', subnets=None, usevpn=None, hubnetworks=None, defaultroute=None,
                       suppressprint=False):
     calltype = 'AutoVPN'
     puturl = '{0}/networks/{1}/siteToSiteVpn'.format(str(base_url), str(networkid))
@@ -2873,10 +2878,15 @@ def updatessid(apikey, networkid, ssidnum, name, enabled, authmode, encryptionmo
     if name:
         putdata['name'] = str(name)
 
-    if enabled and (enabled is not False or not True):
-        raise ValueError("Enabled must be a boolean variable")
+    if type(enabled) == str:
+        enabled = enabled.lower()
+
+    if enabled not in (True, False, 'true', 'false'):
+        raise ValueError('Enabled must be a boolean variable')
+    elif enabled in (True, 'true'):
+        putdata['enabled'] = True
     else:
-        putdata['enabled'] = str(enabled)
+        putdata['enabled'] = False
 
     if authmode not in ['psk', 'open']:
         raise ValueError("Authentication mode must be psk or open")
