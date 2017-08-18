@@ -3332,3 +3332,17 @@ def delvlan(apikey, networkid, vlanid, suppressprint=False):
     #
     result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
     return result
+
+
+
+# MX performance score
+def getmxperf(apikey, networkid, serial, suppressprint=False):
+    calltype = 'MX Performance Detail'
+    geturl = '{0}/networks/{1}/devices/{2}/performance'.format(str(base_url), str(networkid), str(serial))
+    headers = {
+        'x-cisco-meraki-api-key': format(str(apikey)),
+        'Content-Type': 'application/json'
+    }
+    dashboard = requests.get(geturl, headers=headers)
+    result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
+    return result
