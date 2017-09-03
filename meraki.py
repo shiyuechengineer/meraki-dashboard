@@ -1292,6 +1292,41 @@ def getclients(apikey, serialnum, timestamp=86400, suppressprint=False):
     return result
 
 
+# Return the group policy that is assigned to a device in the network.
+# https://dashboard.meraki.com/api_docs#return-the-group-policy-that-is-assigned-to-a-device-in-the-network
+def getclientpolicy(apikey, networkid, clientmac, timestamp=86400, suppressprint=False):
+    calltype = 'Device Clients'
+    geturl = '{0}/networks/{1}/clients/{2}/policy?timespan={3}'.format(str(base_url), str(networkid), str(clientmac), str(timestamp))
+    headers = {
+        'x-cisco-meraki-api-key': format(str(apikey)),
+        'Content-Type': 'application/json'
+    }
+    dashboard = requests.get(geturl, headers=headers)
+    result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
+    return result
+
+
+# Update the group policy assigned to a device in the network.
+# https://dashboard.meraki.com/api_docs#update-the-group-policy-assigned-to-a-device-in-the-network
+def updateclientpolicy(apikey, networkid, clientmac, policy, policyid=None, suppressprint=False):
+    calltype = 'Device Clients'
+    puturl = '{0}/networks/{1}/clients/{2}/policy?timespan=86400'.format(str(base_url), str(networkid), str(clientmac))
+    headers = {
+        'x-cisco-meraki-api-key': format(str(apikey)),
+        'Content-Type': 'application/json'
+    }
+
+    if policy not in ('whitelisted', 'blocked', 'normal', 'group'):
+        raise ValueError('Parameter policy must be either whitelisted, blocked, normal, or group with ID specified')
+    if policy == 'group' and policyid == None:
+        raise ValueError('Parameter policy must be either whitelisted, blocked, normal, or group with ID specified')
+    
+    putdata = {'devicePolicy': policy, 'groupPolicyId': policyid}
+    dashboard = requests.put(puturl, data=json.dumps(putdata), headers=headers)
+    result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
+    return result
+
+
 ### CONFIG TEMPLATES ###
 
 # List the configuration templates for this organization
@@ -1520,6 +1555,23 @@ def updatessidl3fwrules(apikey, networkid, ssidnum, fwrules, allowlan=None, supp
         putdata['allowLanAccess'] = allowlan
 
     dashboard = requests.put(puturl, data=json.dumps(putdata), headers=headers)
+    result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
+    return result
+
+
+### GROUP POLICIES ###
+
+# List the group policies in a network
+# https://dashboard.meraki.com/api_docs#list-the-group-policies-in-a-network
+def getgrouppolicies(apikey, networkid, suppressprint=False):
+    calltype = 'Group Policies'
+
+    geturl = '{0}/networks/{1}/groupPolicies'.format(str(base_url), str(networkid))
+    headers = {
+        'x-cisco-meraki-api-key': format(str(apikey)),
+        'Content-Type': 'application/json'
+    }
+    dashboard = requests.get(geturl, headers=headers)
     result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
     return result
 
