@@ -3680,3 +3680,36 @@ def getmxperf(apikey, networkid, serial, suppressprint=False):
     dashboard = requests.get(geturl, headers=headers)
     result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
     return result
+
+### TRAFFIC SHAPING ###
+
+# Return traffic shaping rules for an MX network
+# https://api.meraki.com//api_docs#traffic-shaping
+def getmxtrafficshaping(apikey, networkid, suppressprint=False):
+    calltype = 'MX Traffic Shaping'
+    geturl = '{0}/networks/{1}/trafficShaping'.format(str(base_url), str(networkid))
+    headers = {
+        'x-cisco-meraki-api-key': format(str(apikey)),
+        'Content-Type': 'application/json'
+    }
+    dashboard = requests.get(geturl, headers=headers)
+    result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
+    return result
+
+# Update traffic shaping rules for an MX network
+# https://api.meraki.com//api_docs#traffic-shaping
+def updatemxtrafficshaping(apikey, networkid, tsrules, suppressprint=False):
+    # tsrules = #{"defaultRulesEnabled": true, "rules": [{"definitions": [{"type": "localNet", "value": "192.168.1.0/24"}], "perClientBandwidthLimits": {"settings": "custom", "bandwidthLimits": {"limitUp": 1024, "limitDown": 1024}}, "dscpTagValue": null, "priority": "high"}]}
+
+    calltype = 'MX Traffic Shaping'
+    puturl = '{0}/networks/{1}/trafficshaping'.format(str(base_url), str(networkid))
+    headers = {
+        'x-cisco-meraki-api-key': format(str(apikey)),
+        'Content-Type': 'application/json'
+    }
+
+    putdata = {'rules': tsrules}
+
+    dashboard = requests.put(puturl, data=json.dumps(putdata), headers=headers)
+    result = __returnhandler(dashboard.status_code, dashboard.text, calltype, suppressprint)
+    return result
