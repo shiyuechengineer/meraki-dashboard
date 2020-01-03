@@ -1,7 +1,7 @@
 """Setup script for meraki"""
 
 import os.path
-from setuptools import setup
+from setuptools import setup, find_packages
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 
@@ -11,7 +11,8 @@ with open(os.path.join(HERE, 'README.md')) as fid:
 setup(
     name='meraki',
     version='0.7.0',
-    packages=['meraki'],
+    packages=find_packages(),
+    include_package_data=True,
     install_requires=['requests'],
     keywords = ['meraki', 'dashboard', 'cisco'],
     description='Cisco Meraki Dashboard API library',
