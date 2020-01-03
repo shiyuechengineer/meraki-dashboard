@@ -8,7 +8,7 @@ The new Meraki Dashboard API Python library provides all current Meraki [Dashboa
 
 This library's goal is to refresh and supplant the legacy module (this repository versions 0.34 and prior) as well as the now-deprecated [SDK](https://github.com/meraki/meraki-python-sdk). Here are some of the features in this revamped library:
 
-* Support for all API endpoints, as it uses the [OpenAPI specification](https://developer.cisco.com/meraki/api/#/rest/getting-started) to generate source code
+* Support for all API endpoints, as it uses the [OpenAPI specification](https://api.meraki.com/api/v0/openapiSpec) to generate source code
 * Log all API requests made to a local file as well as on-screen console
 * Automatic retries upon 429 rate limit errors, using the [`Retry-After` field](https://developer.cisco.com/meraki/api/#/rest/guides/rate-limit-errors) within response headers
 * Get all (or a specified number of) pages of data with built-in pagination control
@@ -41,11 +41,11 @@ This library's goal is to refresh and supplant the legacy module (this repositor
 
 4. Instantiate the client (API consumer class), optionally specifying any of the parameters available to set:
 
-    `dashboard = meraki.DashboardAPI()'`
+    `dashboard = meraki.DashboardAPI()`
 
 5. Make dashboard API calls in your source code, using the format _client.section.operation_, where _client_ is the name you defined in the previous step (**dashboard** above), _section_ is the corresponding group (or tag from the OpenAPI spec) from the [API docs](https://developer.cisco.com/meraki/api/#/rest), and _operation_ is the name (or operation ID from OpenAPI) of the API endpoint. For example, to make a call to get the list of organizations accessible by the API key defined in step 1, use this function call:
 
-    `organizations = dashboard.organizations.getOrganizations()`
+    `my_orgs = dashboard.organizations.getOrganizations()`
 
 
-For a full working script that demos this library, please see and run the **org_wide_clients.py** file included. That code will collect the clients of all networks, in all orgs to which the key has access. No changes are made, since only GET endpoints are called, and the data is written to local CSV output files.
+For a full working script that demos this library, please see and run the **org_wide_clients.py** file included (in **examples** folder). That code collects the clients of all networks, in all orgs to which the key has access. No changes are made, since only GET endpoints are called, and the data is written to local CSV output files.
