@@ -43,11 +43,12 @@ class Devices(object):
 
     def claimNetworkDevices(self, networkId: str, **kwargs):
         """
-        **Claim a device into a network**
-        https://api.meraki.com/api_docs#claim-a-device-into-a-network
+        **Claim devices into a network**
+        https://api.meraki.com/api_docs#claim-devices-into-a-network
         
         - networkId (string)
-        - serial (string): The serial of a device
+        - serials (array): A list of serials of devices to claim
+        - serial (string): [DEPRECATED] The serial of a device to claim
         """
 
         kwargs.update(locals())
@@ -58,7 +59,7 @@ class Devices(object):
         }
         resource = f'/networks/{networkId}/devices/claim'
 
-        body_params = ['serial', 'serials']
+        body_params = ['serials', 'serial', 'serials']
         payload = {k: v for (k, v) in kwargs.items() if k in body_params}
 
         return self._session.post(metadata, resource, payload)
