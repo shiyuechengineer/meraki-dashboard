@@ -15,6 +15,18 @@ CERTIFICATE_PATH = ''
 # Retry if 429 rate limit error encountered?
 WAIT_ON_RATE_LIMIT = True
 
+# Nginx 429 retry wait time
+NGINX_429_RETRY_WAIT_TIME = 60
+
+# Action batch concurrency error retry wait time
+ACTION_BATCH_RETRY_WAIT_TIME = 60
+
+# Retry if encountering other 4XX error (besides 429)?
+RETRY_4XX_ERROR = False
+
+# Other 4XX error retry wait time
+RETRY_4XX_ERROR_WAIT_TIME = 60
+
 # Retry up to this many times when encountering 429s or other server-side errors
 MAXIMUM_RETRIES = 2
 
@@ -32,3 +44,6 @@ PRINT_TO_CONSOLE = True
 
 # Simulate POST/PUT/DELETE calls to prevent changes?
 SIMULATE_API_CALLS = False
+
+# Number of concurrent API requests for asynchronous option
+AIO_MAXIMUM_CONCURRENT_REQUESTS = 3
