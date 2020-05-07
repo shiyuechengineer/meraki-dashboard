@@ -24,11 +24,14 @@ While you can make direct HTTP requests to dashboard API in any programming lang
 
 3. Install the latest version of [Python 3](ttps://wiki.python.org/moin/BeginnersGuide/NonProgrammers)
 
-4. Use _pip_ (or an alternative such as _easy_install_) to install the library:
+4. Use _pip_ (or an alternative such as _easy_install_) to install the library from the Python [Package Index](https://pypi.org/project/meraki/):
     * `pip install meraki`
-    * If you have both Python3 and Python2 installed, you may need to use `pip3 install meraki`
-    * If _meraki_ was previously installed, you can upgrade with `pip install --upgrade meraki` or `pip3 install --upgrade meraki`
-    * You can specify the version of the library, for example `pip install meraki==0.100.2` for v0 or `pip install meraki==1.0.0b1` for v1
+    * If you have both Python3 and Python2 installed, you may need to use `pip3` (so `pip3 install meraki`) along with `python3` on your system
+    * If _meraki_ was previously installed, you can upgrade to the latest stable (non-beta) release with `pip install --upgrade meraki`
+
+5. Meraki dashboard API v1 is currently in beta, so if you clone this repository and want to use v1 locally, rename the folder _meraki_v1_ to _meraki_, replacing the v0 contents there. You can also specify the version of the library when installing with _pip_:
+    * For example, `pip install meraki==0.110.0` for v0 or `pip install meraki==1.0.0b3` for v1 beta
+    * To see the full [release history](https://pypi.org/project/meraki/#history), you can also use `pip install meraki==` without including a version number
 
 ## Usage
 1. Export your API key as an [environment variable](https://www.twilio.com/blog/2017/01/how-to-set-environment-variables.html), for example:

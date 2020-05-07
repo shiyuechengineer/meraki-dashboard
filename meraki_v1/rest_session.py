@@ -1,11 +1,56 @@
 import json
+import platform
 import sys
 import time
+import urllib.parse
 
 import requests
 
 from .config import *
 from .exceptions import *
+from .__init__ import __version__
+
+
+def user_agent_extended(be_geo_id, caller):
+    # Generate extended portion of the User-Agent
+    user_agent_extended = be_geo_id
+    user_agent_extended = {}
+
+    # Mimic pip system data collection per https://github.com/pypa/pip/blob/master/src/pip/_internal/network/session.py
+    user_agent_extended['implementation'] = {
+            "name": platform.python_implementation(),
+        }
+
+    if user_agent_extended["implementation"]["name"] in ('CPython','Jython','IronPython'):
+        user_agent_extended["implementation"]["version"] = platform.python_version()
+    elif user_agent_extended["implementation"]["name"] == 'PyPy':
+        if sys.pypy_version_info.releaselevel == 'final':
+            pypy_version_info = sys.pypy_version_info[:3]
+        else:
+            pypy_version_info = sys.pypy_version_info
+        user_agent_extended["implementation"]["version"] = ".".join(
+            [str(x) for x in pypy_version_info]
+        )
+
+    if sys.platform.startswith("darwin") and platform.mac_ver()[0]:
+        user_agent_extended["distro"] = {"name": "macOS", "version": platform.mac_ver()[0]}
+
+    if platform.system():
+        user_agent_extended.setdefault("system", {})["name"] = platform.system()
+
+    if platform.release():
+        user_agent_extended.setdefault("system", {})["release"] = platform.release()
+
+    if platform.machine():
+        user_agent_extended["cpu"] = platform.machine()
+
+    if be_geo_id:
+        user_agent_extended["be_geo_id"] = be_geo_id
+
+    if caller:
+        user_agent_extended["caller"] = caller
+
+    return urllib.parse.quote(json.dumps(user_agent_extended))
 
 
 # Main module interface
@@ -24,6 +69,8 @@ class RestSession(object):
         retry_4xx_error_wait_time=RETRY_4XX_ERROR_WAIT_TIME,
         maximum_retries=MAXIMUM_RETRIES,
         simulate=SIMULATE_API_CALLS,
+        be_geo_id=BE_GEO_ID,
+        caller=MERAKI_PYTHON_SDK_CALLER,
     ):
         super(RestSession, self).__init__()
 
@@ -39,6 +86,8 @@ class RestSession(object):
         self._retry_4xx_error_wait_time = retry_4xx_error_wait_time
         self._maximum_retries = maximum_retries
         self._simulate = simulate
+        self._be_geo_id = be_geo_id
+        self._caller = caller
 
         # Initialize a new `requests` session
         self._req_session = requests.session()
@@ -46,7 +95,7 @@ class RestSession(object):
         # Check base URL
         if 'v0' in self._base_url:
             sys.exit(f'If you want to use the Python library with v0 paths ({self._base_url} was configured as the base'
-                     f' URL), then install the v0 library. For example: pip install meraki==0.100.2')
+                     f' URL), then install the v0 library. See the "Setup" section @ https://github.com/meraki/dashboard-api-python/')
         elif self._base_url[-1] == '/':
             self._base_url = self._base_url[:-1]
 
@@ -54,7 +103,7 @@ class RestSession(object):
         self._req_session.headers = {
             'Authorization': 'Bearer ' + self._api_key,
             'Content-Type': 'application/json',
-            'User-Agent': 'python-meraki/1.0.0b1',
+            'User-Agent': f'python-meraki/{__version__} ' + user_agent_extended(self._be_geo_id, self._caller),
         }
 
         # Log API calls
