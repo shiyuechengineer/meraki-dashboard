@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import json
 import platform
 import random
@@ -64,6 +65,7 @@ class AsyncRestSession:
         base_url=DEFAULT_BASE_URL,
         single_request_timeout=SINGLE_REQUEST_TIMEOUT,
         certificate_path=CERTIFICATE_PATH,
+        requests_proxy=REQUESTS_PROXY,
         wait_on_rate_limit=WAIT_ON_RATE_LIMIT,
         nginx_429_retry_wait_time=NGINX_429_RETRY_WAIT_TIME,
         action_batch_retry_wait_time=ACTION_BATCH_RETRY_WAIT_TIME,
@@ -78,10 +80,12 @@ class AsyncRestSession:
         super().__init__()
 
         # Initialize attributes and properties
+        self._version = __version__
         self._api_key = str(api_key)
         self._base_url = str(base_url)
         self._single_request_timeout = single_request_timeout
         self._certificate_path = certificate_path
+        self._requests_proxy = requests_proxy
         self._wait_on_rate_limit = wait_on_rate_limit
         self._nginx_429_retry_wait_time = nginx_429_retry_wait_time
         self._action_batch_retry_wait_time = action_batch_retry_wait_time
@@ -95,17 +99,17 @@ class AsyncRestSession:
         self._caller = caller
 
         # Check base URL
-        if 'v1' in self._base_url:
-            sys.exit(f'If you want to use the Python library with v1 paths ({self._base_url} was configured as the base'
-                     f' URL), then install the v1 library. See the "Setup" section @ https://github.com/meraki/dashboard-api-python/')
+        if 'v0' in self._base_url:
+            sys.exit(f'If you want to use the Python library with v0 paths ({self._base_url} was configured as the base'
+                     f' URL), then install the v0 library. See the "Setup" section @ https://github.com/meraki/dashboard-api-python/')
         elif self._base_url[-1] == '/':
             self._base_url = self._base_url[:-1]
 
         # Update the headers for the session
         self._headers = {
-            'X-Cisco-Meraki-API-Key': self._api_key,
+            "Authorization": "Bearer " + self._api_key,
             "Content-Type": "application/json",
-            "User-Agent": f"python-meraki/aio-{__version__} " + user_agent_extended(self._be_geo_id, self._caller),
+            "User-Agent": f"python-meraki/aio-{self._version} " + user_agent_extended(self._be_geo_id, self._caller),
         }
         if self._certificate_path:
             self._sslcontext = ssl.create_default_context()
@@ -119,7 +123,11 @@ class AsyncRestSession:
 
         # Log API calls
         self._logger = logger
-        self._parameters = locals()
+        self._parameters = {"version": self._version}
+        self._parameters.update(locals())
+        self._parameters.pop("self")
+        self._parameters.pop("logger")
+        self._parameters.pop("__class__")
         self._parameters["api_key"] = "*" * 36 + self._api_key[-4:]
         if self._logger:
             self._logger.info(f"Meraki dashboard API session initialized with these parameters: {self._parameters}")
@@ -142,10 +150,13 @@ class AsyncRestSession:
         # Update request kwargs with session defaults
         if self._certificate_path:
             kwargs.setdefault("ssl", self._sslcontext)
+        if self._requests_proxy:
+            kwargs.setdefault("proxy", self._requests_proxy)
         kwargs.setdefault("timeout", self._single_request_timeout)
 
         # Ensure proper base URL
-        if "meraki.com" in url:
+        url = str(url)
+        if "meraki.com" in url or "meraki.cn" in url:
             abs_url = url
         else:
             abs_url = self._base_url + url
@@ -166,6 +177,8 @@ class AsyncRestSession:
             for _ in range(retries):
                 # Make the HTTP request to the API endpoint
                 try:
+                    if self._logger:
+                        self._logger.info(f'{method} {abs_url}')
                     response = await self._req_session.request(method, abs_url, **kwargs)
                     reason = response.reason if response.reason else None
                     status = response.status
@@ -199,6 +212,8 @@ class AsyncRestSession:
                 elif 300 <= status < 400:
                     abs_url = response.headers["Location"]
                     substring = "meraki.com/api/v"
+                    if substring not in abs_url:
+                        substring = "meraki.cn/api/v"
                     self._base_url = abs_url[
                         : abs_url.find(substring) + len(substring) + 1
                     ]
@@ -222,7 +237,10 @@ class AsyncRestSession:
                     try:
                         message = await response.json()
                     except aiohttp.client_exceptions.ContentTypeError:
-                        message = (await response.content())[:100]
+                        try:
+                            message = (await response.text())[:100]
+                        except:
+                            message = None
 
                     # Check specifically for action batch concurrency error
                     action_batch_concurrency_error = {
@@ -257,37 +275,50 @@ class AsyncRestSession:
         return await response.json()
 
     async def get_pages(
-        self, metadata, url, params=None, total_pages=-1, direction="next"
+        self, metadata, url, params=None, total_pages=-1, direction="next", event_log_end_time=None
     ):
         if type(total_pages) == str and total_pages.lower() == "all":
             total_pages = -1
+        elif type(total_pages) == str and total_pages.isnumeric():
+            total_pages = int(total_pages)
         metadata["page"] = 1
 
         response = await self.request(metadata, "GET", url, params=params)
         results = await response.json()
 
+        # For event log endpoint when using 'next' direction, so results/events are sorted chronologically
+        if type(results) == dict and metadata["operation"] == "getNetworkEvents" and direction == "next":
+            results["events"] = results["events"][::-1]
+
         # Get additional pages if more than one requested
         while total_pages != 1:
-            # Parse Link from headers
-            links = response.headers["Link"].split(",")
-            first = prev = next = last = None
-            for l in links:
-                if "rel=first" in l:
-                    first = l[l.find("<") + 1 : l.find(">")]
-                elif "rel=prev" in l:
-                    prev = l[l.find("<") + 1 : l.find(">")]
-                elif "rel=next" in l:
-                    next = l[l.find("<") + 1 : l.find(">")]
-                elif "rel=last" in l:
-                    last = l[l.find("<") + 1 : l.find(">")]
+            links = response.links
 
             # GET the subsequent page
-            if direction == "next" and next:
+            if direction == "next" and "next" in links:
+                # Prevent getNetworkEvents from infinite loop as time goes forward
+                if metadata["operation"] == "getNetworkEvents":
+                    starting_after = urllib.parse.unquote(links["next"]["url"].split("startingAfter=")[1])
+                    delta = datetime.utcnow() - datetime.fromisoformat(starting_after[:-1])
+                    # Break out of loop if startingAfter returned from next link is within 5 minutes of current time
+                    if delta.total_seconds() < 300:
+                        break
+                    # Or if next page is past the specified window's end time
+                    elif event_log_end_time and starting_after > event_log_end_time:
+                        break
+                
                 metadata["page"] += 1
-                response = await self.request(metadata, "GET", next)
-            elif direction == "prev" and prev:
+                response = await self.request(metadata, "GET", links["next"]["url"])
+            elif direction == "prev" and "prev" in links:
+                # Prevent getNetworkEvents from infinite loop as time goes backward (to epoch 0)
+                if metadata["operation"] == "getNetworkEvents":
+                    ending_before = urllib.parse.unquote(links["prev"]["url"].split("endingBefore=")[1])
+                    # Break out of loop if endingBefore returned from prev link is before 2014
+                    if ending_before < "2014-01-01":
+                        break
+                
                 metadata["page"] += 1
-                response = await self.request(metadata, "GET", prev)
+                response = await self.request(metadata, "GET", links["prev"]["url"])
             else:
                 break
 
@@ -300,6 +331,8 @@ class AsyncRestSession:
                 start = json_response["pageStartAt"]
                 end = json_response["pageEndAt"]
                 events = json_response["events"]
+                if direction == "next":
+                    events = events[::-1]
                 if start < results["pageStartAt"]:
                     results["pageStartAt"] = start
                 if end > results["pageEndAt"]:
